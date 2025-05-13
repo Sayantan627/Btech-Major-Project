@@ -1,89 +1,90 @@
 import cv2
 
-IMAGE_FILE     = "parking_lot.png"
-COORDS_FILE    = "parking_area_coordinates.txt"
-PREVIEW_WIDTH  = 800   # max width of the interactive window
+print("[INFO] Loading parking lot image ...")
 
+image = "parking_lot.png"
 
-orig = cv2.imread(IMAGE_FILE)
-if orig is None:
-    raise FileNotFoundError(f"Could not open {IMAGE_FILE}")
+img = cv2.imread(image)
 
-h, w = orig.shape[:2]
-scale = PREVIEW_WIDTH / w if w > PREVIEW_WIDTH else 1.0
-disp_size = (int(w * scale), int(h * scale))
-disp = cv2.resize(orig, disp_size, interpolation=cv2.INTER_AREA)
+file = open("parking_area_coordinates.txt","r+")
 
-# one‐time clear & base buffer
-open(COORDS_FILE, "w").close()
-base_disp = disp.copy()
-img       = base_disp.copy()
+file.truncate(0)
 
-print("[INFO] Drawing parking areas at {}×{} (orig {}×{})".format(
-    disp_size[0], disp_size[1], w, h))
-print("[INSTRUCTIONS]")
-print(" • Drag left‐mouse to draw a rectangle.")
-print(" • Press ENTER to save the current area.")
-print(" • Press ESC to finish.\n")
+file.close()
 
-ix = iy = 0
+print("[INFO] Parking lot image loaded successfully!")
+    
+print("[INFO] Click and drag to draw parking area. Press SPACE to save after each area")
+
+ix = -1
+iy = -1
 drawing = False
-coords = (0, 0, 0, 0)
-lot_count = 0
 
+a = 0
+b = 0
+c = 0
+d = 0
 
-def draw_rectangle(event, x, y, flags, param):
-    global ix, iy, drawing, img, coords
+parking_lot = 0
+
+def draw_reactangle_with_drag(event, x, y, flags, param):
+    global ix, iy, drawing, img, a, b, c, d
     if event == cv2.EVENT_LBUTTONDOWN:
         drawing = True
-        ix, iy = x, y
+        ix = x
+        iy = y
 
-    elif event == cv2.EVENT_MOUSEMOVE and drawing:
-        img = base_disp.copy()
-        cv2.rectangle(img, (ix, iy), (x, y), (0,255,0), 2)
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if drawing == True:
+            img = cv2.imread(image)
+            cv2.rectangle(img, 
+                          pt1=(ix,iy), 
+                          pt2=(x, y),
+                          color=(0,255,0),
+                          thickness=2)
 
     elif event == cv2.EVENT_LBUTTONUP:
         drawing = False
-        coords = (ix, iy, x, y)
-        img = base_disp.copy()
-        cv2.rectangle(img, (ix, iy), (x, y), (0,255,0), 2)
+        img = cv2.imread(image)
+        cv2.rectangle(img, 
+                      pt1=(ix,iy), 
+                      pt2=(x, y),
+                      color=(0,255,0),
+                      thickness=2)
+        
+        a = ix
+        b = iy
+        c = x
+        d = y 
 
-cv2.namedWindow("Parking area", cv2.WINDOW_NORMAL)
-cv2.setMouseCallback("Parking area", draw_rectangle)
-
+cv2.namedWindow("Parking area")
 
 while True:
+    
     cv2.imshow("Parking area", img)
-    key = cv2.waitKey(1) & 0xFF
+    
+    cv2.setMouseCallback("Parking area", draw_reactangle_with_drag)
+    
+    if cv2.waitKey(5) == 32:
 
-    if key == 13:  # ENTER
-        x1p, y1p, x2p, y2p = coords
-        # map back to original coords
-        x1, y1 = int(x1p/scale), int(y1p/scale)
-        x2, y2 = int(x2p/scale), int(y2p/scale)
+        parking_lot += 1
+        
+        print("[INFO] SPACE pressed! New parking area saved.")
 
-        lot_count += 1
-        print(f"[INFO] Saved parking area #{lot_count}: ({x1},{y1})→({x2},{y2})")
-
-        # write to coords file
-        with open(COORDS_FILE, "a") as f:
-            f.write(f"{x1} {y1} {x2} {y2}\n")
-
-        # draw permanently into our preview buffer
-        cv2.rectangle(base_disp, (x1p, y1p), (x2p, y2p), (0,255,0), 2)
-        img = base_disp.copy()
-
-    elif key == 27:  # ESC
-        print("[INFO] Finished drawing parking areas.")
+        print("[INFO] Number of parking lots: {}".format(parking_lot))
+        
+        cv2.imwrite("parking_lot.png", img)
+        
+        with open('parking_area_coordinates.txt', 'a') as file:
+            
+            file.write("{} {} {} {}\n". format(a, b, c, d))
+        
+        continue
+    
+    if cv2.waitKey(5) == 27:
+        
+        print("[INFO] Exit drawing parking area.")
+        
         break
-
-
-annotated = orig.copy()
-with open(COORDS_FILE) as f:
-    for line in f:
-        x1, y1, x2, y2 = map(int, line.split())
-        cv2.rectangle(annotated, (x1, y1), (x2, y2), (0,255,0), 2)
-cv2.imwrite(IMAGE_FILE, annotated)
-print(f"[INFO] Overwrote {IMAGE_FILE} with drawn areas.")
-
+    
 cv2.destroyAllWindows()
