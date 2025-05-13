@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+opencv-python
+# plus any local modules (you can install detector/ as a package or adjust PYTHONPATH)
